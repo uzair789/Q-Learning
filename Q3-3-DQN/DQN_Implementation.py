@@ -23,8 +23,8 @@ class QNetwork():
 		if self.env_name == 'CartPole-v0':
 			model = Sequential()
 			model.add(Dense(64, activation = 'tanh', input_shape=(4,)))
-			model.add(Dense(64, activation = 'tanh', input_shape=(64,)))
-			model.add(Dense(2, activation = 'tanh', input_shape=(64,)))
+			model.add(Dense(64, activation = 'tanh'))
+			model.add(Dense(2))
 			
 		else:
 			# put the architecture for mountain car here
@@ -106,7 +106,8 @@ class DQN_Agent():
 		self.number_iterations = 10000
 		self.env = gym.make(environment_name)
 		self.epsilon = 0.5
-		self.epsilon_step = 0.45**(-5)
+		self.epsilon_step = 0.45 * pow(10,-5)
+		self.test_every = 20
 		if environment_name == 'CartPole-v0':
 			self.gamma = 0.99
 		else:
@@ -121,7 +122,7 @@ class DQN_Agent():
 		print('epsilon after', self.epsilon)
 
 	def epsilon_greedy_policy(self, q_values):
-		# Creating epsilon greedy probabilities to sample from. 
+		# Creating epsilon greedy probabilities to sample from.
 		if np.random.binomial(n=1, p=self.epsilon):
 			# sample random action
 			action = self.env.action_space.sample()
@@ -201,15 +202,18 @@ class DQN_Agent():
 				loss.append(l)
 				acc.append(a)
 				r_c.append(reward)
-				self.epsilon = self.epsilon - self.epsilon_step
-			rewards_per_episode = sum(r_c)
-			loss_per_episode = np.mean(loss)
-			acc_per_episode = np.mean(acc)
+			self.epsilon = self.epsilon - self.epsilon_step
+			rewards_per_episode = (sum(r_c))
+			loss_per_episode = (np.mean(loss))
+			acc_per_episode = (np.mean(acc))
 			
-			print('episode = %d | step = %d | loss = %f | acc = %f | epsilon = %f | mean_reward per episode = %f '%(i, c, loss_per_episode, acc_per_episode, self.epsilon, rewards_per_episode))
+			print('episode = %d | step = %d | loss = %f | acc = %f | reward per episode = %d | epsion = %f'%(i, c, loss_per_episode, acc_per_episode, rewards_per_episode, self.epsilon))
 
-		return [np.mean(loss_per_episode), np.mean(acc_per_episode), np.mean(rewards_per_episode)]
-			
+
+
+			if i%self.test_every == 0:
+				mean_rewards = self.test()
+				print('mean test reward over 20 episodes = ', mean_rewards)
 			
 			
 
@@ -229,12 +233,12 @@ class DQN_Agent():
 				q_values = self.model.predict(np.array(state, ndmin=2))
 				action = self.greedy_policy(q_values)
 				next_state, reward, done, info = self.env.step(action)
-				state = next_state
 				#self.env.render()
+				state = next_state
 				r_c.append(reward)
 				sum_rewards = sum(r_c)
 			rewards_per_episode.append(sum_rewards)
-			print('Inside TESTING --> episode = %d/%d | steps = %d | episode reward = %f | epsilon = %f'%(i, num_episodes, c, sum_rewards, self.epsilon))
+			print('Inside TESTING --> episode = %d/%d | steps = %d | episode reward = %d | epsilon = %f'%(i, num_episodes, c, sum_rewards, self.epsilon))
 		#self.env.close()	
 		
 		return np.mean(rewards_per_episode)
@@ -314,29 +318,10 @@ def main(args):
 	dqn = DQN_Agent(env_name)
 	dqn.burn_in_memory()
 
-	num_iterations = 100
-	loss_all = []
-	acc_all = []
-	rewards_all = []
-
-	# test
-	rewards_all_test = []
-	anneal_every = [10, 15, 35, 50]
-	for i in range(num_iterations):
-		[mean_loss, mean_acc, mean_rewards] = dqn.train()
-		print('TRAINIGN 100 episode --> iteration = %d/%d | loss = %f | accuracy = %f | reward = %f'%(i, num_iterations, mean_loss, mean_acc, mean_rewards))
-		# test code here
-		test_every = 1
-		if i%test_every == 0:
-			mean_rewards_per_100_episodes = dqn.test()
-			print('TESTING --> iteration = %d/%d | mean 20 episode reward = %f'%(i, num_iterations, mean_rewards_per_100_episodes))
-			rewards_all_test.append(mean_rewards_per_100_episodes)
-		if i in anneal_every:
-			dqn.anneal_epsilon()	
+	dqn.train()
 
 
-
-	plot_graphs(rewards_all_test)
+	#plot_graphs(rewards_all_test)
 
 
 
