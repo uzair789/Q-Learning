@@ -20,17 +20,25 @@ class QNetwork():
 		# and optimizers here, initialize your variables, or alternately compile your model here.  
 		self.env_name = environment_name
 		if self.env_name == 'CartPole-v0':
+			lr = 0.001
 			self.model = Sequential()
 			self.model.add(Dense(64, activation = 'tanh', input_shape=(4,)))
+			self.model.add(Dense(128, activation = 'tanh', ))
 			self.model.add(Dense(128, activation = 'tanh', ))
 			self.model.add(Dense(64, activation = 'tanh'))
 			self.model.add(Dense(2))
 			
 		else:
 			# put the architecture for mountain car here
-			pass
+			self.model = Sequential()
+			self.model.add(Dense(64, activation = 'tanh', input_shape=(2,)))
+			self.model.add(Dense(128, activation = 'tanh', ))
+			self.model.add(Dense(64, activation = 'tanh'))
+			self.model.add(Dense(3))
+			lr = 0.001
+
 		self.model.compile(loss=keras.losses.mean_squared_error,
-				optimizer=tf.train.AdamOptimizer(learning_rate =0.001),
+				optimizer=tf.train.AdamOptimizer(learning_rate =lr),
 				metrics=['accuracy'])
 		
 	def get_model(self):
@@ -108,13 +116,13 @@ class DQN_Agent():
 		self.env_name = environment_name
 		self.net = QNetwork(self.env_name)
 		self.model = self.net.get_model()
-		self.memory_size = 100000
+		self.memory_size = 70000
 		self.burn_in = 10000
 		self.batch_size = 32
 		self.number_episodes = 5000
 		self.env = gym.make(self.env_name)
-		self.epsilon = 0.5 #0.3 #0.5
-		self.epsilon_step = 0.45 * pow(10, -5)#0.20 * pow(10, -6)  #0.45 * pow(10,-5)
+		self.epsilon = 0.5
+		self.epsilon_step = 0.45 * pow(10,-5)
 		self.test_every = 100
 		if self.env_name == 'CartPole-v0':
 			self.gamma = 0.99
@@ -232,7 +240,7 @@ class DQN_Agent():
 					else:
 						stop_training = False		
 				
-		self.net.save_model_weights('64_128_64')	
+		self.net.save_model_weights('car_64_128_64')	
 		return [training_loss, mean_test_rewards]
 
 
@@ -333,7 +341,7 @@ def main(args):
 	keras.backend.tensorflow_backend.set_session(sess)
 
 	# You want to create an instance of the DQN_Agent class here, and then train / test it.
-	env_name = 'CartPole-v0' 
+	env_name = 'MountainCar-v0' 
 	dqn = DQN_Agent(env_name)
 	dqn.burn_in_memory()
 
