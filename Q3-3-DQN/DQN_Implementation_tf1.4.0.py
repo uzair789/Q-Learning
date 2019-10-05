@@ -210,7 +210,7 @@ class DQN_Agent():
 				if not stop_training:	
 					history = self.model.fit(x, y, epochs=1, batch_size=self.batch_size, verbose=0)
 				loss.append(history.history['loss'][-1])
-				acc.append(history.history['accuracy'][-1])
+				acc.append(history.history['acc'][-1])
 				state_rewards.append(reward)
 			self.epsilon = self.epsilon - self.epsilon_step
 			rewards_per_episode = (sum(state_rewards))
