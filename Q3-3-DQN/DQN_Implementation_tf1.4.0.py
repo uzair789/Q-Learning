@@ -34,10 +34,9 @@ class QNetwork():
 				optimizer=tf.train.AdamOptimizer(learning_rate =0.001),
 				metrics=['accuracy'])
 		
-
-
-	def make_model(self):
+	def get_model(self):
 		return self.model
+
 
 	def save_model_weights(self, suffix):
 		# Helper function to save your model / weights. 
@@ -108,7 +107,8 @@ class DQN_Agent():
 		# Here is also a good place to set environmental parameters,
 		# as well as training parameters - number of episodes / iterations, etc.
 		self.env_name = environment_name
-		self.model = QNetwork(self.env_name).make_model()
+		self.net = QNetwork(self.env_name)
+		self.model = self.net.get_model()
 		self.memory_size = 100000
 		self.burn_in = 10000
 		self.batch_size = 32
@@ -232,7 +232,7 @@ class DQN_Agent():
 					else:
 						stop_training = False		
 				
-		self.model.save_model_weights('64_128_128_64')	
+		self.net.save_model_weights('64_128_128_64')	
 		return [training_loss, mean_test_rewards]
 
 
@@ -284,7 +284,7 @@ def test_video(agent, env, epi):
 	# 	you can pass the arguments within agent.train() as:
 	# 		if episode % int(self.num_episodes/3) == 0:
     #       	test_video(self, self.environment_name, episode)
-    save_path = "./videos-%s-%s" % (env, epi)
+    save_path = "./results/videos-%s-%s" % (env, epi)
     if not os.path.exists(save_path):
         os.mkdir(save_path)
     # To create video
@@ -317,7 +317,7 @@ def plot_graph(data, title, xlabel, ylabel):
 	plt.plot(data)
 	plt.xlabel(xlabel)
 	plt.ylabel(ylabel)
-	plt.savefig(title+'.jpg')
+	plt.savefig('results/'+title+'.png')
 
 def main(args):
 
