@@ -9,6 +9,8 @@ import matplotlib.pyplot as plt
 
 import os
 
+OUTPUT_PATH = './results/'
+
 class QNetwork():
 
 	# This class essentially defines the network architecture. 
@@ -20,6 +22,7 @@ class QNetwork():
 		# and optimizers here, initialize your variables, or alternately compile your model here.  
 		self.env_name = environment_name
 		if self.env_name == 'CartPole-v0':
+			lr = 0.0001
 			self.model = Sequential()
 			self.model.add(Dense(64, activation = 'tanh', input_shape=(4,)))
 			self.model.add(Dense(128, activation = 'tanh', ))
@@ -29,19 +32,24 @@ class QNetwork():
 			
 		else:
 			# put the architecture for mountain car here
-			pass
+			self.model = Sequential()
+			self.model.add(Dense(64, activation = 'tanh', input_shape=(2,)))
+			self.model.add(Dense(128, activation = 'tanh', ))
+			self.model.add(Dense(64, activation = 'tanh'))
+			self.model.add(Dense(3))
+			lr = 0.0001
+
 		self.model.compile(loss=keras.losses.mean_squared_error,
-				optimizer=tf.train.AdamOptimizer(learning_rate =0.001),
+				optimizer=tf.train.AdamOptimizer(learning_rate =lr),
 				metrics=['accuracy'])
 		
-
-
-	def make_model(self):
+	def get_model(self):
 		return self.model
+
 
 	def save_model_weights(self, suffix):
 		# Helper function to save your model / weights. 
-		self.model.save_weights(suffix+'_model.h5')
+		self.model.save_weights(os.path.join(OUTPUT_PATH, suffix+'_model.h5'))
 
 	def load_model(self, model_file):
 		# Helper function to load an existing model.
@@ -108,10 +116,9 @@ class DQN_Agent():
 		# Here is also a good place to set environmental parameters,
 		# as well as training parameters - number of episodes / iterations, etc.
 		self.env_name = environment_name
-		self.model = QNetwork(self.env_name).make_model()
-		self.memory_size = 100000
+		self.net = QNetwork(self.env_name)
+		self.model = self.net.get_model()
 		self.burn_in = 10000
-		self.batch_size = 32
 		self.number_episodes = 5000
 		self.env = gym.make(self.env_name)
 		self.epsilon = 0.5
@@ -119,8 +126,12 @@ class DQN_Agent():
 		self.test_every = 100
 		if self.env_name == 'CartPole-v0':
 			self.gamma = 0.99
+			self.memory_size = 100000
+			self.batch_size = 64
 		else:
 			self.gamma = 1
+			self.memory_size = 100000
+			self.batch_size = 64
 		self.replay_mem = Replay_Memory(memory_size=self.memory_size, burn_in=self.burn_in)
 
 
@@ -142,31 +153,36 @@ class DQN_Agent():
 		return action
 
 
-	def action_to_one_hot(self, action):
-		action_vec = np.zeros(self.env.action_space.n)
-		action_vec[action] = 1
-		return action_vec
-
 	def greedy_policy(self, q_values):
 		# Creating greedy policy for test time. 
 		action = np.argmax(q_values)
 		return action
 
 	def get_training_data(self, batch):
-		y = []
-		x = []
-		for current_state, action, reward, next_state, done in batch:
-			q_value_current_state = self.model.predict(np.array(current_state, ndmin=2))[0]
-			q_value_next_state = self.model.predict(np.array(next_state, ndmin=2))[0]
-			target = q_value_current_state
-			if done:
-				target[action] = reward
-			else:
-				target[action] = reward + self.gamma * max(q_value_next_state)
-			y.append(target)
-			x.append(current_state)	
+
+		current_states = np.array([x for x in batch[:,0]])
+		actions = np.array([x for x in batch[:, 1]])
+		rewards = np.array([x for x in batch[:, 2]])
+		next_states = np.array([x for x in batch[:, 3]])
+		dones = np.array([int(not(x)) for x in batch[:, 4]])
+
+		q_values_current_state = self.model.predict(np.array(current_states, ndmin=2))
+		q_values_next_state = self.model.predict(np.array(next_states, ndmin=2))
+
+
+		targets = q_values_current_state
+			
+		a = np.multiply( self.gamma * np.max(q_values_next_state, axis=1), dones)
+		targets[np.arange(self.batch_size), actions] = rewards + a 
+
+		#	if done:
+		#		target[action] = reward
+		#	else:
+		#		target[action] = reward + self.gamma * max(q_value_next_state)
+		#	y.append(target)
+		#	x.append(current_state)	
 	
-		return [np.array(x), np.array(y)]		
+		return [current_states, targets]		
 
 	def train(self):
 		# In this function, we will train our network. 
@@ -210,9 +226,10 @@ class DQN_Agent():
 				if not stop_training:	
 					history = self.model.fit(x, y, epochs=1, batch_size=self.batch_size, verbose=0)
 				loss.append(history.history['loss'][-1])
-				acc.append(history.history['accuracy'][-1])
+				acc.append(history.history['acc'][-1])
 				state_rewards.append(reward)
-			self.epsilon = self.epsilon - self.epsilon_step
+				
+				self.epsilon = max(self.epsilon - self.epsilon_step, 0.05)
 			rewards_per_episode = (sum(state_rewards))
 			loss_per_episode = (np.mean(loss))
 			acc_per_episode = (np.mean(acc))
@@ -231,8 +248,7 @@ class DQN_Agent():
 						stop_training = True
 					else:
 						stop_training = False		
-				
-		self.model.save_model_weights('64_128_128_64')	
+		self.net.save_model_weights(self.env_name+'_vector_64_128_64')	
 		return [training_loss, mean_test_rewards]
 
 
@@ -255,7 +271,7 @@ class DQN_Agent():
 				state_rewards.append(reward)
 				sum_rewards = sum(state_rewards)
 			episode_rewards.append(sum_rewards)
-			#print('Inside TESTING --> episode = %d/%d | steps = %d | episode reward = %d | epsilon = %f'%(i, num_episodes, c, sum_rewards, self.epsilon))
+			print('Inside TESTING --> episode = %d/%d | steps = %d | episode reward = %d | epsilon = %f'%(i, num_episodes, c, sum_rewards, self.epsilon))
 		#self.env.close()	
 		
 		return episode_rewards
@@ -284,7 +300,7 @@ def test_video(agent, env, epi):
 	# 	you can pass the arguments within agent.train() as:
 	# 		if episode % int(self.num_episodes/3) == 0:
     #       	test_video(self, self.environment_name, episode)
-    save_path = "./videos-%s-%s" % (env, epi)
+    save_path = os.path.join(OUTPUT_PATH, "videos-%s-%s" % (env, epi))
     if not os.path.exists(save_path):
         os.mkdir(save_path)
     # To create video
@@ -317,12 +333,12 @@ def plot_graph(data, title, xlabel, ylabel):
 	plt.plot(data)
 	plt.xlabel(xlabel)
 	plt.ylabel(ylabel)
-	plt.savefig(title+'.jpg')
+	plt.savefig(OUTPUT_PATH+title+'.png')
 
 def main(args):
 
 	args = parse_arguments()
-	environment_name = args.env
+	env_name = args.env
 
 	# Setting the session to allow growth, so it doesn't allocate all GPU memory. 
 	gpu_ops = tf.GPUOptions(allow_growth=True)
@@ -333,7 +349,6 @@ def main(args):
 	keras.backend.tensorflow_backend.set_session(sess)
 
 	# You want to create an instance of the DQN_Agent class here, and then train / test it.
-	env_name = 'CartPole-v0' 
 	dqn = DQN_Agent(env_name)
 	dqn.burn_in_memory()
 
@@ -343,9 +358,12 @@ def main(args):
 	plot_graph(training_loss, 'training_loss_for_'+env_name, 'episodes', 'training loss')
 	plot_graph(mean_test_rewards, 'Mean_test_rewards_20_'+env_name, 'iterations', 'Mean rewards for 20 episodes')
 	
-	final_test_rewards = dqn.test(num_episodes=3)
-
-	plot_graph(final_test_rewards, 'final_test_rewards_for_'+env_name, 'episodes', 'Test Rewards')
+	mean_test_rewards = []
+	for i in range(2000):
+		if i%100 == 0:
+			final_test_rewards = dqn.test(num_episodes=20)
+			mean_test_rewards.append(np.mean(final_test_rewards))
+	plot_graph(mean_test_rewards, 'final_test_rewards_for_'+env_name, 'episodes', 'Test Rewards')
 
 
 
