@@ -12,7 +12,7 @@ To initiate training, and automatically set the hyperparameters based on the env
 python DQN_Implementation.py --env <environment name>
 ```
 
-###System Settings
+### System Settings
 OS - Ubuntu 14.04
 GPU - NVIDIA GTX1080Ti
 Python - 3.4
