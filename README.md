@@ -14,7 +14,11 @@ python DQN_Implementation.py --env <environment name>
 
 ### System Settings
 OS - Ubuntu 14.04
+
 GPU - NVIDIA GTX1080Ti
+
 Python - 3.4
+
 Tensorflow 1.5.0
+
 For more dependencies, please check the requirements.txt file. 
