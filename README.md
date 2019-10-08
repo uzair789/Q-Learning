@@ -19,6 +19,6 @@ GPU - NVIDIA GTX1080Ti
 
 Python - 3.4
 
-Tensorflow 1.5.0
+Tensorflow 1.4.0
 
 For more dependencies, please check the requirements.txt file. 
